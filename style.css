@@ -1,0 +1,104 @@
+:root {
+  --paper: #f7f7f4;
+  --surface: #ffffff;
+  --surface-muted: #f0f0eb;
+  --ink: #1d211e;
+  --muted: #8c938b;
+  --line: #e6e8e2;
+  --accent: #d7f35c;
+  --accent-deep: #a8c32c;
+  --code: #242a27;
+  --purple: #9b87f5;
+  --shadow: 0 16px 50px rgba(34, 43, 35, .08);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 900px; background: var(--paper); color: var(--ink); font-family: "DM Sans", sans-serif; }
+button, textarea { font: inherit; }
+button { border: 0; cursor: pointer; }
+.app-shell { display: flex; flex-direction: column; min-height: 100vh; padding: 0 28px; }
+.topbar { height: 74px; display: flex; align-items: center; gap: 20px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 9px; color: var(--ink); font-size: 19px; font-weight: 700; text-decoration: none; letter-spacing: -.04em; }
+.brand-mark { display: grid; place-items: center; width: 27px; height: 27px; border-radius: 8px; background: var(--ink); color: var(--accent); font-family: "DM Mono", monospace; font-size: 17px; }
+.project-name { margin-left: 20px; color: var(--muted); font-size: 13px; }
+.topbar-actions { display: flex; align-items: center; gap: 18px; margin-left: auto; }
+.save-state { color: var(--muted); font-size: 12px; }
+.status-dot, .online-dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: #91bb37; }
+.icon-button { padding: 4px; background: none; color: var(--muted); font-size: 19px; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: #e0d7ca; color: #665748; font-size: 12px; font-weight: 600; }
+.workspace { display: grid; grid-template-columns: 220px minmax(420px, 1fr) 286px; flex: 1; min-height: 640px; margin: 25px 0 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.sidebar { display: flex; flex-direction: column; border-right: 1px solid var(--line); background: #fbfbf9; }
+.sidebar-heading, .editor-toolbar, .output-header { display: flex; align-items: center; justify-content: space-between; }
+.sidebar-heading { padding: 24px 20px 19px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+.new-file { width: 21px; height: 21px; border-radius: 5px; background: transparent; color: var(--muted); font-size: 18px; line-height: 18px; }
+.new-file:hover, .clear-button:hover { color: var(--ink); background: var(--surface-muted); }
+.project-root { padding: 0 20px 12px; color: #687067; font-size: 12px; font-weight: 600; }
+.chevron { margin-right: 4px; color: #aab0a7; }
+.folder-icon { color: #c6cb70; font-size: 11px; }
+.file-list { display: grid; gap: 3px; padding: 0 10px; }
+.file-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 7px; background: none; color: #6d756d; text-align: left; font-size: 13px; }
+.file-item:hover { background: var(--surface-muted); color: var(--ink); }
+.file-item.active { background: #edf2d8; color: var(--ink); font-weight: 600; }
+.python-icon, .markdown-icon, .text-icon { display: inline-grid; place-items: center; width: 21px; height: 21px; border-radius: 5px; font: 500 9px "DM Mono", monospace; }
+.python-icon { background: #dbe8ff; color: #4775cc; }
+.markdown-icon { background: #e9e4ff; color: #7562c4; }
+.text-icon { background: #e8eee8; color: #6b816d; font-size: 13px; }
+.sidebar-footer { margin-top: auto; padding: 15px 13px; border-top: 1px solid var(--line); }
+.runtime-card { display: flex; align-items: center; gap: 10px; padding: 12px 9px; border-radius: 8px; background: var(--surface-muted); }
+.runtime-icon { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 6px; background: #ded7ff; color: #7669bd; font-size: 13px; }
+.runtime-card small { display: block; color: var(--muted); font-size: 10px; }
+.runtime-card strong { display: block; margin-top: 2px; font-size: 11px; font-weight: 600; }
+.online-dot { margin: 0 0 0 auto; width: 6px; height: 6px; }
+.editor-panel { min-width: 0; display: flex; flex-direction: column; }
+.tab-bar { display: flex; align-items: center; height: 51px; border-bottom: 1px solid var(--line); background: #fafbf8; }
+.tab { display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 17px; border-right: 1px solid var(--line); border-bottom: 2px solid var(--accent-deep); background: var(--surface); font-size: 12px; }
+.tab .python-icon { width: 18px; height: 18px; }
+.tab-close { margin-left: 9px; color: #aeb3ac; font-size: 16px; }
+.tab-add { padding: 6px 12px; background: none; color: var(--muted); font-size: 19px; }
+.editor-toolbar { padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.breadcrumbs { display: flex; gap: 9px; color: var(--muted); font-size: 11px; }
+.breadcrumbs strong { color: #566057; font-weight: 500; }
+.editor-actions { display: flex; align-items: center; gap: 14px; }
+.shortcut, .run-shortcut { color: #a1a8a0; font: 10px "DM Mono", monospace; }
+.run-button { padding: 8px 13px; border-radius: 6px; background: var(--ink); color: white; font-size: 12px; font-weight: 600; }
+.run-button:hover { background: #374039; }
+.play-icon { margin-right: 5px; color: var(--accent); font-size: 9px; }
+.run-shortcut { margin-left: 10px; color: #a8b0aa; }
+.editor-wrap { position: relative; display: flex; flex: 1; min-height: 420px; padding-top: 20px; background: var(--surface); }
+.line-numbers { width: 55px; padding-right: 17px; color: #c7cbc5; font: 12px/24px "DM Mono", monospace; text-align: right; user-select: none; }
+#code-editor { flex: 1; min-width: 0; padding: 0 20px 30px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--code); font: 13px/24px "DM Mono", monospace; white-space: pre; overflow: auto; }
+.editor-caret-hint { position: absolute; right: 15px; bottom: 12px; color: #c1c7bd; font: 10px "DM Mono", monospace; }
+.statusbar { display: flex; gap: 20px; padding: 9px 17px; border-top: 1px solid var(--line); color: #9ba39a; font: 10px "DM Mono", monospace; }
+.status-online { margin-left: auto; color: #80a24b; }
+.output-panel { display: flex; flex-direction: column; border-left: 1px solid var(--line); background: #fbfbf9; }
+.output-header { align-items: flex-start; padding: 25px 20px 16px; border-bottom: 1px solid var(--line); }
+.eyebrow, .tip-label { color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; }
+.output-header h2 { margin: 4px 0 0; font-size: 18px; letter-spacing: -.03em; }
+.clear-button { padding: 5px 7px; border-radius: 5px; background: transparent; color: var(--muted); font-size: 11px; }
+.output-body { flex: 1; padding: 18px 20px; }
+.output-meta { display: flex; align-items: center; gap: 7px; color: #7e887d; font-size: 11px; }
+.output-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-deep); }
+.output-time { margin-left: auto; color: #b0b6ad; font-size: 10px; }
+#output-text { min-height: 45px; margin: 21px 0; color: #475047; font: 12px/21px "DM Mono", monospace; white-space: pre-wrap; }
+.muted { color: #b0b6ae; }
+.tips { padding: 18px 20px 20px; border-top: 1px solid var(--line); }
+.tips p { margin: 8px 0 0; color: #8b948b; font-size: 11px; line-height: 18px; }
+kbd { display: inline-block; margin: 0 2px; padding: 1px 5px; border: 1px solid #dfe3da; border-radius: 4px; background: white; color: #798078; font: 10px "DM Mono", monospace; }
+.footer { display: flex; align-items: center; gap: 22px; padding: 0 4px 20px; color: #a0a69e; font-size: 11px; }
+.footer span:nth-child(2) { margin-left: auto; }
+.footer a { color: #737c73; text-decoration: none; }
+.heart { color: #bece5d; }
+
+body.dark { --paper: #171b18; --surface: #202620; --surface-muted: #293029; --ink: #edf1e8; --muted: #929d91; --line: #333c34; --code: #e5eee1; }
+body.dark .sidebar, body.dark .output-panel, body.dark .tab-bar { background: #1c211d; }
+body.dark .file-item.active { background: #364122; }
+body.dark .editor-wrap, body.dark .tab { background: var(--surface); }
+body.dark .avatar { background: #5d5549; color: #f2e7d8; }
+body.dark .runtime-card, body.dark kbd { background: var(--surface-muted); }
+
+@media (max-width: 1050px) {
+  body { min-width: 760px; }
+  .app-shell { padding: 0 14px; }
+  .workspace { grid-template-columns: 185px minmax(380px, 1fr) 235px; }
+  .shortcut, .run-shortcut, .project-name { display: none; }
+}
