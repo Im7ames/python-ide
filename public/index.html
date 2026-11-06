@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Minimal Python IDE</title>
   <link rel="stylesheet" href="styles.css" />
+
+  <!-- Font Awesome (free) -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"
+  />
+
   <!-- Monaco Editor loader -->
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
   <!-- Pyodide -->
@@ -14,13 +21,27 @@
   <div class="ide">
     <!-- Header / Toolbar -->
     <header class="toolbar">
-      <span class="logo">Minimal Python IDE</span>
+      <span class="logo">
+        <i class="fa-brands fa-python logo-icon"></i>
+        Minimal Python IDE
+      </span>
+
       <div class="actions">
-        <button id="run-btn" title="Run (Ctrl+Enter)">▶ Run</button>
-        <button id="stop-btn" title="Stop execution" disabled>■ Stop</button>
-        <button id="install-btn" title="Install a package with micropip">📦 Install</button>
-        <button id="clear-btn" title="Clear terminal">🧹 Clear</button>
-        <a href="app.html" class="help-link" title="Help & limitations">?</a>
+        <button id="run-btn" title="Run (Ctrl+Enter)">
+          <i class="fa-solid fa-play"></i><span>Run</span>
+        </button>
+        <button id="stop-btn" title="Stop execution" disabled>
+          <i class="fa-solid fa-stop"></i><span>Stop</span>
+        </button>
+        <button id="install-btn" title="Install a package with micropip">
+          <i class="fa-solid fa-download"></i><span>Install</span>
+        </button>
+        <button id="clear-btn" title="Clear terminal">
+          <i class="fa-solid fa-broom"></i><span>Clear</span>
+        </button>
+        <a href="app.html" class="help-link" title="Help & limitations">
+          <i class="fa-solid fa-circle-question"></i>
+        </a>
       </div>
     </header>
 
@@ -32,8 +53,13 @@
     <!-- Terminal area -->
     <div class="terminal-container">
       <div class="terminal-header">
-        <span>Terminal</span>
-        <span id="status" class="status">Ready</span>
+        <span class="terminal-title">
+          <i class="fa-solid fa-terminal"></i> Terminal
+        </span>
+        <span id="status" class="status">
+          <i class="fa-solid fa-circle status-dot"></i>
+          <span id="status-text">Ready</span>
+        </span>
       </div>
       <pre id="terminal" class="terminal-output"></pre>
     </div>
@@ -60,7 +86,6 @@
         renderWhitespace: 'selection',
       });
 
-      // Ctrl+Enter to run
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
         runCode();
       });
@@ -74,11 +99,17 @@
     let isRunning = false;
 
     const terminalEl = document.getElementById('terminal');
-    const statusEl = document.getElementById('status');
-    const runBtn = document.getElementById('run-btn');
-    const stopBtn = document.getElementById('stop-btn');
+    const statusEl   = document.getElementById('status');
+    const statusText = document.getElementById('status-text');
+    const runBtn     = document.getElementById('run-btn');
+    const stopBtn    = document.getElementById('stop-btn');
 
-    // Strip basic ANSI escape codes for clean terminal output.
+    function setStatus(text, state = 'ready') {
+      statusText.textContent = text;
+      statusEl.classList.remove('status-ready', 'status-busy', 'status-error');
+      statusEl.classList.add('status-' + state);
+    }
+
     function stripAnsi(str) {
       return str.replace(/\x1B\[[0-9;]*[A-Za-z]/g, '');
     }
@@ -99,32 +130,26 @@
       appendToTerminal('Python IDE ready.\n', 'info');
     }
 
-    // Initialise Pyodide
     (async function initPyodide() {
       try {
         appendToTerminal('Loading Python runtime…\n', 'info');
+        setStatus('Loading…', 'busy');
+
         pyodide = await loadPyodide({
           indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/',
         });
 
-        // Redirect stdout / stderr to the terminal panel.
-        pyodide.setStdout({
-          batched: (msg) => appendToTerminal(msg + '\n'),
-        });
-        pyodide.setStderr({
-          batched: (msg) => appendToTerminal(msg + '\n', 'error'),
-        });
-
-        // Simple synchronous input via browser prompt.
-        pyodide.setStdin({
-          stdin: () => prompt('Input:') || '',
-        });
+        // NOTE: batched() fires once per line and strips the trailing newline,
+        // so we add it back here.
+        pyodide.setStdout({ batched: (msg) => appendToTerminal(msg + '\n') });
+        pyodide.setStderr({ batched: (msg) => appendToTerminal(msg + '\n', 'error') });
+        pyodide.setStdin({ stdin: () => prompt('Input:') || '' });
 
         pyodideReady = true;
-        statusEl.textContent = 'Python ready';
+        setStatus('Python ready', 'ready');
         appendToTerminal('Python runtime loaded.\n', 'info');
       } catch (err) {
-        statusEl.textContent = 'Load failed';
+        setStatus('Load failed', 'error');
         appendToTerminal('Failed to load Pyodide: ' + err.message + '\n', 'error');
       }
     })();
@@ -133,8 +158,7 @@
     /* 3. Run / Stop / Install / Clear                                     */
     /* ------------------------------------------------------------------ */
     async function runCode() {
-      if (!pyodideReady || isRunning) return;
-      if (!editor) return;
+      if (!pyodideReady || isRunning || !editor) return;
 
       const code = editor.getValue();
       if (!code.trim()) {
@@ -146,30 +170,28 @@
       isRunning = true;
       runBtn.disabled = true;
       stopBtn.disabled = false;
-      statusEl.textContent = 'Running…';
+      setStatus('Running…', 'busy');
 
       try {
         await pyodide.runPythonAsync(code);
         appendToTerminal('\n[Finished]\n', 'info');
+        setStatus('Finished', 'ready');
       } catch (err) {
         appendToTerminal('\n' + err.message + '\n', 'error');
+        setStatus('Error', 'error');
       } finally {
         isRunning = false;
         runBtn.disabled = false;
         stopBtn.disabled = true;
-        statusEl.textContent = 'Ready';
       }
     }
 
     function stopExecution() {
-      // Pyodide does not expose a clean interrupt API in the main thread.
-      // For a minimal IDE we simply reset the running state.
-      // In production you would run Pyodide in a Web Worker and terminate it.
       if (!isRunning) return;
       isRunning = false;
       runBtn.disabled = false;
       stopBtn.disabled = true;
-      statusEl.textContent = 'Stopped';
+      setStatus('Stopped', 'ready');
       appendToTerminal('\n[Execution interrupted]\n', 'info');
     }
 
@@ -182,7 +204,7 @@
       if (!pkg) return;
 
       appendToTerminal(`Installing "${pkg}"…\n`, 'info');
-      statusEl.textContent = 'Installing…';
+      setStatus('Installing…', 'busy');
 
       try {
         await pyodide.loadPackage('micropip');
@@ -191,10 +213,10 @@ import micropip
 await micropip.install("${pkg}")
 `);
         appendToTerminal(`"${pkg}" installed successfully.\n`, 'info');
-        statusEl.textContent = 'Package installed';
+        setStatus('Package installed', 'ready');
       } catch (err) {
         appendToTerminal(`Installation failed: ${err.message}\n`, 'error');
-        statusEl.textContent = 'Install failed';
+        setStatus('Install failed', 'error');
       }
     }
 
@@ -206,7 +228,6 @@ await micropip.install("${pkg}")
     document.getElementById('install-btn').addEventListener('click', installPackage);
     document.getElementById('clear-btn').addEventListener('click', clearTerminal);
 
-    // Show initial message
     clearTerminal();
   </script>
 </body>
