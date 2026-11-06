@@ -3,232 +3,307 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Minimal Python IDE</title>
-  <link rel="stylesheet" href="styles.css" />
+  <title>Python IDE</title>
 
-  <!-- Font Awesome (free) -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"
-  />
-
-  <!-- Monaco Editor loader -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
-  <!-- Pyodide -->
   <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+
+  <style>
+    html, body { overflow: hidden; height: 100%; }
+    #editorContainer { height: 100vh; width: 100%; }
+
+    .fade-in { animation: fadeIn 0.3s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .terminal-output {
+      font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .term-error   { color: #f87171; }
+    .term-info    { color: #60a5fa; }
+    .term-success { color: #4ade80; }
+
+    .status-toast {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    .status-toast.visible { opacity: 1; }
+    .status-toast.info    { background: #3b82f6; color: #fff; }
+    .status-toast.success { background: #22c55e; color: #fff; }
+    .status-toast.error   { background: #ef4444; color: #fff; }
+  </style>
 </head>
-<body>
-  <div class="ide">
-    <!-- Header / Toolbar -->
-    <header class="toolbar">
-      <span class="logo">
-        <i class="fa-brands fa-python logo-icon"></i>
-        Minimal Python IDE
-      </span>
 
-      <div class="actions">
-        <button id="run-btn" title="Run (Ctrl+Enter)">
-          <i class="fa-solid fa-play"></i><span>Run</span>
-        </button>
-        <button id="stop-btn" title="Stop execution" disabled>
-          <i class="fa-solid fa-stop"></i><span>Stop</span>
-        </button>
-        <button id="install-btn" title="Install a package with micropip">
-          <i class="fa-solid fa-download"></i><span>Install</span>
-        </button>
-        <button id="clear-btn" title="Clear terminal">
-          <i class="fa-solid fa-broom"></i><span>Clear</span>
-        </button>
-        <a href="app.html" class="help-link" title="Help & limitations">
-          <i class="fa-solid fa-circle-question"></i>
-        </a>
-      </div>
-    </header>
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
 
-    <!-- Editor area -->
-    <div class="editor-container">
-      <div id="editor"></div>
-    </div>
+  <!-- ==================== Editor View ==================== -->
+  <div id="editorView" class="h-screen fade-in">
+    <div id="editorContainer"></div>
 
-    <!-- Terminal area -->
-    <div class="terminal-container">
-      <div class="terminal-header">
-        <span class="terminal-title">
-          <i class="fa-solid fa-terminal"></i> Terminal
-        </span>
-        <span id="status" class="status">
-          <i class="fa-solid fa-circle status-dot"></i>
-          <span id="status-text">Ready</span>
-        </span>
-      </div>
-      <pre id="terminal" class="terminal-output"></pre>
+    <!-- Floating action buttons -->
+    <div class="fixed top-6 right-6 flex flex-col gap-3 z-50">
+      <button id="runBtn" title="Run (Ctrl+Enter)"
+        class="bg-green-600 hover:bg-green-700 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-green-300/50 flex items-center justify-center">
+        <i class="fas fa-play text-xl"></i>
+      </button>
+      <button id="terminalBtn" title="Show Terminal"
+        class="bg-gray-600 hover:bg-gray-700 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center opacity-30 hover:opacity-100">
+        <i class="fas fa-terminal text-lg"></i>
+      </button>
+      <button id="installBtn" title="Install Package (micropip)"
+        class="bg-yellow-600 hover:bg-yellow-700 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center opacity-30 hover:opacity-100">
+        <i class="fas fa-download text-lg"></i>
+      </button>
     </div>
   </div>
 
+  <!-- ==================== Terminal View ==================== -->
+  <div id="terminalView" class="h-screen hidden flex flex-col bg-gray-50 dark:bg-gray-950">
+    <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+      <div class="flex items-center gap-2 text-sm font-medium">
+        <i class="fas fa-terminal text-blue-500"></i>
+        <span>Terminal</span>
+      </div>
+      <button id="clearBtn"
+        class="text-sm text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 flex items-center gap-1.5 transition-colors">
+        <i class="fas fa-broom"></i>
+        <span>Clear</span>
+      </button>
+    </div>
+
+    <pre id="terminal" class="terminal-output flex-1 overflow-y-auto p-4 text-sm"></pre>
+
+    <button id="backBtn" title="Back to Editor (Escape)"
+      class="fixed top-6 right-6 bg-gray-600 hover:bg-gray-700 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center z-50 opacity-30 hover:opacity-100">
+      <i class="fas fa-arrow-left text-xl"></i>
+    </button>
+  </div>
+
+  <!-- Status toast -->
+  <div id="statusToast" class="status-toast"></div>
+
   <script>
-    /* ------------------------------------------------------------------ */
-    /* 1. Monaco Editor setup                                              */
-    /* ------------------------------------------------------------------ */
-    require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
-
-    let editor;
-
-    require(['vs/editor/editor.main'], function () {
-      editor = monaco.editor.create(document.getElementById('editor'), {
-        value: `# Welcome to the Minimal Python IDE\n# Write Python 3 code below and press Run.\n\nprint("Hello, World!")\n`,
-        language: 'python',
-        theme: 'vs-dark',
-        minimap: { enabled: false },
-        automaticLayout: true,
-        fontSize: 14,
-        lineNumbers: 'on',
-        tabSize: 4,
-        renderWhitespace: 'selection',
-      });
-
-      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-        runCode();
-      });
+    /* ============================================================
+       Theme detection (matches reference)
+       ============================================================ */
+    let isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (isDarkMode) document.documentElement.classList.add('dark');
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      isDarkMode = e.matches;
+      document.documentElement.classList.toggle('dark', isDarkMode);
+      if (window.monacoEditor) monaco.editor.setTheme(isDarkMode ? 'vs-dark' : 'vs-light');
     });
 
-    /* ------------------------------------------------------------------ */
-    /* 2. Pyodide loading and stream redirection                           */
-    /* ------------------------------------------------------------------ */
+    /* ============================================================
+       DOM refs
+       ============================================================ */
+    const editorView   = document.getElementById('editorView');
+    const terminalView = document.getElementById('terminalView');
+    const terminalEl   = document.getElementById('terminal');
+    const toastEl      = document.getElementById('statusToast');
+    const runBtn       = document.getElementById('runBtn');
+    const terminalBtn  = document.getElementById('terminalBtn');
+    const installBtn   = document.getElementById('installBtn');
+    const clearBtn     = document.getElementById('clearBtn');
+    const backBtn      = document.getElementById('backBtn');
+
+    let monacoEditor = null;
     let pyodide = null;
     let pyodideReady = false;
     let isRunning = false;
+    let toastTimer = null;
 
-    const terminalEl = document.getElementById('terminal');
-    const statusEl   = document.getElementById('status');
-    const statusText = document.getElementById('status-text');
-    const runBtn     = document.getElementById('run-btn');
-    const stopBtn    = document.getElementById('stop-btn');
-
-    function setStatus(text, state = 'ready') {
-      statusText.textContent = text;
-      statusEl.classList.remove('status-ready', 'status-busy', 'status-error');
-      statusEl.classList.add('status-' + state);
+    /* ============================================================
+       Toast
+       ============================================================ */
+    function showToast(msg, type = 'info') {
+      toastEl.textContent = msg;
+      toastEl.className = 'status-toast visible ' + type;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastEl.classList.remove('visible'), 2200);
     }
 
-    function stripAnsi(str) {
-      return str.replace(/\x1B\[[0-9;]*[A-Za-z]/g, '');
-    }
+    /* ============================================================
+       Terminal helpers
+       ============================================================ */
+    function stripAnsi(s) { return s.replace(/\x1B\[[0-9;]*[A-Za-z]/g, ''); }
 
     function appendToTerminal(text, type = 'output') {
       if (!text) return;
-      const clean = stripAnsi(text);
       const span = document.createElement('span');
-      if (type === 'error') span.className = 'term-error';
-      else if (type === 'info') span.className = 'term-info';
-      span.textContent = clean;
+      if (type === 'error')        span.className = 'term-error';
+      else if (type === 'info')    span.className = 'term-info';
+      else if (type === 'success') span.className = 'term-success';
+      span.textContent = stripAnsi(text);
       terminalEl.appendChild(span);
       terminalEl.scrollTop = terminalEl.scrollHeight;
     }
 
-    function clearTerminal() {
-      terminalEl.textContent = '';
-      appendToTerminal('Python IDE ready.\n', 'info');
+    function clearTerminal() { terminalEl.textContent = ''; }
+
+    /* ============================================================
+       View switching
+       ============================================================ */
+    function switchToTerminal() {
+      editorView.classList.add('hidden');
+      terminalView.classList.remove('hidden');
+      terminalView.classList.add('fade-in');
     }
 
+    function switchToEditor() {
+      terminalView.classList.add('hidden');
+      editorView.classList.remove('hidden');
+      editorView.classList.add('fade-in');
+      if (monacoEditor) monacoEditor.focus();
+    }
+
+    /* ============================================================
+       Monaco
+       ============================================================ */
+    require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+
+    require(['vs/editor/editor.main'], function () {
+      monacoEditor = monaco.editor.create(document.getElementById('editorContainer'), {
+        value: `# Welcome to the Python IDE
+# Press Ctrl+Enter or click the ▶ button to run
+
+print("Hello, World!")
+`,
+        language: 'python',
+        theme: isDarkMode ? 'vs-dark' : 'vs-light',
+        fontSize: 15,
+        lineNumbers: 'on',
+        wordWrap: 'on',
+        automaticLayout: true,
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        folding: true,
+        bracketMatching: 'always',
+        autoIndent: 'full',
+        formatOnPaste: true,
+        formatOnType: true,
+        quickSuggestions: { other: true, comments: true, strings: true },
+        parameterHints: { enabled: true },
+        suggestOnTriggerCharacters: true,
+        acceptSuggestionOnEnter: 'on',
+        tabCompletion: 'on',
+        wordBasedSuggestions: true,
+      });
+
+      monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, runCode);
+      monacoEditor.focus();
+      window.monacoEditor = monacoEditor;
+    });
+
+    /* ============================================================
+       Pyodide
+       ============================================================ */
     (async function initPyodide() {
       try {
-        appendToTerminal('Loading Python runtime…\n', 'info');
-        setStatus('Loading…', 'busy');
+        showToast('Loading Python…', 'info');
+        pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/' });
 
-        pyodide = await loadPyodide({
-          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/',
-        });
-
-        // NOTE: batched() fires once per line and strips the trailing newline,
-        // so we add it back here.
-        pyodide.setStdout({ batched: (msg) => appendToTerminal(msg + '\n') });
-        pyodide.setStderr({ batched: (msg) => appendToTerminal(msg + '\n', 'error') });
-        pyodide.setStdin({ stdin: () => prompt('Input:') || '' });
+        // batched() fires once per line and strips the trailing newline.
+        pyodide.setStdout({ batched: (m) => appendToTerminal(m + '\n') });
+        pyodide.setStderr({ batched: (m) => appendToTerminal(m + '\n', 'error') });
+        pyodide.setStdin({ stdin: () => prompt('Input:') ?? '' });
 
         pyodideReady = true;
-        setStatus('Python ready', 'ready');
-        appendToTerminal('Python runtime loaded.\n', 'info');
-      } catch (err) {
-        setStatus('Load failed', 'error');
-        appendToTerminal('Failed to load Pyodide: ' + err.message + '\n', 'error');
+        showToast('Python ready', 'success');
+      } catch (e) {
+        showToast('Load failed: ' + e.message, 'error');
       }
     })();
 
-    /* ------------------------------------------------------------------ */
-    /* 3. Run / Stop / Install / Clear                                     */
-    /* ------------------------------------------------------------------ */
+    /* ============================================================
+       Run
+       ============================================================ */
     async function runCode() {
-      if (!pyodideReady || isRunning || !editor) return;
+      if (!pyodideReady) { showToast('Python still loading…', 'info'); return; }
+      if (isRunning || !monacoEditor) return;
 
-      const code = editor.getValue();
-      if (!code.trim()) {
-        appendToTerminal('Nothing to run.\n', 'info');
-        return;
-      }
+      const code = monacoEditor.getValue();
+      if (!code.trim()) { showToast('Nothing to run', 'info'); return; }
 
+      switchToTerminal();
       clearTerminal();
+      appendToTerminal('$ python\n', 'info');
+
       isRunning = true;
-      runBtn.disabled = true;
-      stopBtn.disabled = false;
-      setStatus('Running…', 'busy');
+      runBtn.classList.add('opacity-50', 'pointer-events-none');
+      showToast('Running…', 'info');
 
       try {
         await pyodide.runPythonAsync(code);
-        appendToTerminal('\n[Finished]\n', 'info');
-        setStatus('Finished', 'ready');
+        appendToTerminal('\n[Finished]\n', 'success');
+        showToast('Finished', 'success');
       } catch (err) {
         appendToTerminal('\n' + err.message + '\n', 'error');
-        setStatus('Error', 'error');
+        showToast('Error', 'error');
       } finally {
         isRunning = false;
-        runBtn.disabled = false;
-        stopBtn.disabled = true;
+        runBtn.classList.remove('opacity-50', 'pointer-events-none');
       }
     }
 
-    function stopExecution() {
-      if (!isRunning) return;
-      isRunning = false;
-      runBtn.disabled = false;
-      stopBtn.disabled = true;
-      setStatus('Stopped', 'ready');
-      appendToTerminal('\n[Execution interrupted]\n', 'info');
-    }
-
+    /* ============================================================
+       Install (micropip, not pip)
+       ============================================================ */
     async function installPackage() {
-      if (!pyodideReady) {
-        appendToTerminal('Python runtime is still loading…\n', 'info');
-        return;
-      }
-      const pkg = prompt('Package name to install (e.g. numpy, requests, beautifulsoup4):');
+      if (!pyodideReady) { showToast('Python still loading…', 'info'); return; }
+      const pkg = prompt('Package name (pure-Python or Pyodide-compatible wheel):');
       if (!pkg) return;
 
-      appendToTerminal(`Installing "${pkg}"…\n`, 'info');
-      setStatus('Installing…', 'busy');
+      switchToTerminal();
+      appendToTerminal(`\n$ micropip install ${pkg}\n`, 'info');
+      showToast(`Installing ${pkg}…`, 'info');
 
       try {
         await pyodide.loadPackage('micropip');
-        await pyodide.runPythonAsync(`
-import micropip
-await micropip.install("${pkg}")
-`);
-        appendToTerminal(`"${pkg}" installed successfully.\n`, 'info');
-        setStatus('Package installed', 'ready');
+        await pyodide.runPythonAsync(`import micropip\nawait micropip.install("${pkg}")`);
+        appendToTerminal(`✓ ${pkg} installed\n`, 'success');
+        showToast(`${pkg} installed`, 'success');
       } catch (err) {
-        appendToTerminal(`Installation failed: ${err.message}\n`, 'error');
-        setStatus('Install failed', 'error');
+        const msg = String(err.message || err);
+        const hint = msg.includes('pure Python')
+          ? '\nHint: this package needs native compilation and cannot run in the browser.'
+          : '';
+        appendToTerminal(`✗ ${msg}${hint}\n`, 'error');
+        showToast('Install failed', 'error');
       }
     }
 
-    /* ------------------------------------------------------------------ */
-    /* 4. Wire up UI                                                       */
-    /* ------------------------------------------------------------------ */
+    /* ============================================================
+       Wire up
+       ============================================================ */
     runBtn.addEventListener('click', runCode);
-    stopBtn.addEventListener('click', stopExecution);
-    document.getElementById('install-btn').addEventListener('click', installPackage);
-    document.getElementById('clear-btn').addEventListener('click', clearTerminal);
+    terminalBtn.addEventListener('click', switchToTerminal);
+    installBtn.addEventListener('click', installPackage);
+    backBtn.addEventListener('click', switchToEditor);
+    clearBtn.addEventListener('click', () => {
+      clearTerminal();
+      showToast('Cleared', 'info');
+    });
 
-    clearTerminal();
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !terminalView.classList.contains('hidden')) {
+        switchToEditor();
+      }
+    });
   </script>
 </body>
 </html>
