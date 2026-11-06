@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minimal Python IDE</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Monaco Editor loader -->
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+  <!-- Pyodide -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+</head>
+<body>
+  <div class="ide">
+    <!-- Header / Toolbar -->
+    <header class="toolbar">
+      <span class="logo">Minimal Python IDE</span>
+      <div class="actions">
+        <button id="run-btn" title="Run (Ctrl+Enter)">▶ Run</button>
+        <button id="stop-btn" title="Stop execution" disabled>■ Stop</button>
+        <button id="install-btn" title="Install a package with micropip">📦 Install</button>
+        <button id="clear-btn" title="Clear terminal">🧹 Clear</button>
+        <a href="app.html" class="help-link" title="Help & limitations">?</a>
+      </div>
+    </header>
+
+    <!-- Editor area -->
+    <div class="editor-container">
+      <div id="editor"></div>
+    </div>
+
+    <!-- Terminal area -->
+    <div class="terminal-container">
+      <div class="terminal-header">
+        <span>Terminal</span>
+        <span id="status" class="status">Ready</span>
+      </div>
+      <pre id="terminal" class="terminal-output"></pre>
+    </div>
+  </div>
+
+  <script>
+    /* ------------------------------------------------------------------ */
+    /* 1. Monaco Editor setup                                              */
+    /* ------------------------------------------------------------------ */
+    require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+
+    let editor;
+
+    require(['vs/editor/editor.main'], function () {
+      editor = monaco.editor.create(document.getElementById('editor'), {
+        value: `# Welcome to the Minimal Python IDE\n# Write Python 3 code below and press Run.\n\nprint("Hello, World!")\n`,
+        language: 'python',
+        theme: 'vs-dark',
+        minimap: { enabled: false },
+        automaticLayout: true,
+        fontSize: 14,
+        lineNumbers: 'on',
+        tabSize: 4,
+        renderWhitespace: 'selection',
+      });
+
+      // Ctrl+Enter to run
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+        runCode();
+      });
+    });
+
+    /* ------------------------------------------------------------------ */
+    /* 2. Pyodide loading and stream redirection                           */
+    /* ------------------------------------------------------------------ */
+    let pyodide = null;
+    let pyodideReady = false;
+    let isRunning = false;
+
+    const terminalEl = document.getElementById('terminal');
+    const statusEl = document.getElementById('status');
+    const runBtn = document.getElementById('run-btn');
+    const stopBtn = document.getElementById('stop-btn');
+
+    // Strip basic ANSI escape codes for clean terminal output.
+    function stripAnsi(str) {
+      return str.replace(/\x1B\[[0-9;]*[A-Za-z]/g, '');
+    }
+
+    function appendToTerminal(text, type = 'output') {
+      if (!text) return;
+      const clean = stripAnsi(text);
+      const span = document.createElement('span');
+      if (type === 'error') span.className = 'term-error';
+      else if (type === 'info') span.className = 'term-info';
+      span.textContent = clean;
+      terminalEl.appendChild(span);
+      terminalEl.scrollTop = terminalEl.scrollHeight;
+    }
+
+    function clearTerminal() {
+      terminalEl.textContent = '';
+      appendToTerminal('Python IDE ready.\n', 'info');
+    }
+
+    // Initialise Pyodide
+    (async function initPyodide() {
+      try {
+        appendToTerminal('Loading Python runtime…\n', 'info');
+        pyodide = await loadPyodide({
+          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/',
+        });
+
+        // Redirect stdout / stderr to the terminal panel.
+        pyodide.setStdout({
+          batched: (msg) => appendToTerminal(msg),
+        });
+        pyodide.setStderr({
+          batched: (msg) => appendToTerminal(msg, 'error'),
+        });
+
+        // Simple synchronous input via browser prompt.
+        pyodide.setStdin({
+          stdin: () => prompt('Input:') || '',
+        });
+
+        pyodideReady = true;
+        statusEl.textContent = 'Python ready';
+        appendToTerminal('Python runtime loaded.\n', 'info');
+      } catch (err) {
+        statusEl.textContent = 'Load failed';
+        appendToTerminal('Failed to load Pyodide: ' + err.message + '\n', 'error');
+      }
+    })();
+
+    /* ------------------------------------------------------------------ */
+    /* 3. Run / Stop / Install / Clear                                     */
+    /* ------------------------------------------------------------------ */
+    async function runCode() {
+      if (!pyodideReady || isRunning) return;
+      if (!editor) return;
+
+      const code = editor.getValue();
+      if (!code.trim()) {
+        appendToTerminal('Nothing to run.\n', 'info');
+        return;
+      }
+
+      clearTerminal();
+      isRunning = true;
+      runBtn.disabled = true;
+      stopBtn.disabled = false;
+      statusEl.textContent = 'Running…';
+
+      try {
+        await pyodide.runPythonAsync(code);
+        appendToTerminal('\n[Finished]\n', 'info');
+      } catch (err) {
+        appendToTerminal('\n' + err.message + '\n', 'error');
+      } finally {
+        isRunning = false;
+        runBtn.disabled = false;
+        stopBtn.disabled = true;
+        statusEl.textContent = 'Ready';
+      }
+    }
+
+    function stopExecution() {
+      // Pyodide does not expose a clean interrupt API in the main thread.
+      // For a minimal IDE we simply reset the running state.
+      // In production you would run Pyodide in a Web Worker and terminate it.
+      if (!isRunning) return;
+      isRunning = false;
+      runBtn.disabled = false;
+      stopBtn.disabled = true;
+      statusEl.textContent = 'Stopped';
+      appendToTerminal('\n[Execution interrupted]\n', 'info');
+    }
+
+    async function installPackage() {
+      if (!pyodideReady) {
+        appendToTerminal('Python runtime is still loading…\n', 'info');
+        return;
+      }
+      const pkg = prompt('Package name to install (e.g. numpy, requests, beautifulsoup4):');
+      if (!pkg) return;
+
+      appendToTerminal(`Installing "${pkg}"…\n`, 'info');
+      statusEl.textContent = 'Installing…';
+
+      try {
+        await pyodide.loadPackage('micropip');
+        await pyodide.runPythonAsync(`
+import micropip
+await micropip.install("${pkg}")
+`);
+        appendToTerminal(`"${pkg}" installed successfully.\n`, 'info');
+        statusEl.textContent = 'Package installed';
+      } catch (err) {
+        appendToTerminal(`Installation failed: ${err.message}\n`, 'error');
+        statusEl.textContent = 'Install failed';
+      }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* 4. Wire up UI                                                       */
+    /* ------------------------------------------------------------------ */
+    runBtn.addEventListener('click', runCode);
+    stopBtn.addEventListener('click', stopExecution);
+    document.getElementById('install-btn').addEventListener('click', installPackage);
+    document.getElementById('clear-btn').addEventListener('click', clearTerminal);
+
+    // Show initial message
+    clearTerminal();
+  </script>
+</body>
+</html>
