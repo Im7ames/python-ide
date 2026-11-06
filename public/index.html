@@ -109,10 +109,10 @@
 
         // Redirect stdout / stderr to the terminal panel.
         pyodide.setStdout({
-          batched: (msg) => appendToTerminal(msg),
+          batched: (msg) => appendToTerminal(msg + '\n'),
         });
         pyodide.setStderr({
-          batched: (msg) => appendToTerminal(msg, 'error'),
+          batched: (msg) => appendToTerminal(msg + '\n', 'error'),
         });
 
         // Simple synchronous input via browser prompt.
