@@ -31,11 +31,20 @@ html, body {
 }
 
 .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 600;
   font-size: 14px;
   color: #cccccc;
 }
 
+.logo-icon {
+  font-size: 16px;
+  color: #ffd43b;   /* Python yellow */
+}
+
+/* ---------- Action buttons ---------- */
 .actions {
   display: flex;
   gap: 8px;
@@ -43,18 +52,28 @@ html, body {
 }
 
 .actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: #3a3d41;
   color: #cccccc;
   border: 1px solid #4a4d51;
   border-radius: 4px;
-  padding: 4px 10px;
+  padding: 5px 10px;
   font-size: 12px;
+  line-height: 1;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.actions button i {
+  font-size: 11px;
 }
 
 .actions button:hover:not(:disabled) {
   background: #4a4d51;
+  border-color: #5a5d61;
+  color: #ffffff;
 }
 
 .actions button:disabled {
@@ -62,15 +81,25 @@ html, body {
   cursor: not-allowed;
 }
 
+/* Tint individual action icons for quick recognition */
+#run-btn i     { color: #4ec9b0; }
+#stop-btn i    { color: #f44747; }
+#install-btn i { color: #dcdcaa; }
+#clear-btn i   { color: #9cdcfe; }
+
 .help-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #569cd6;
-  text-decoration: none;
   font-size: 16px;
   margin-left: 6px;
+  text-decoration: none;
+  transition: color 0.15s;
 }
 
 .help-link:hover {
-  text-decoration: underline;
+  color: #79b8f3;
 }
 
 /* ---------- Editor ---------- */
@@ -97,7 +126,8 @@ html, body {
 .terminal-header {
   display: flex;
   justify-content: space-between;
-  padding: 4px 12px;
+  align-items: center;
+  padding: 5px 12px;
   background: #252526;
   border-bottom: 1px solid #333;
   font-size: 12px;
@@ -105,10 +135,44 @@ html, body {
   flex-shrink: 0;
 }
 
-.status {
-  color: #4ec9b0;
+.terminal-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
+.terminal-title i {
+  font-size: 11px;
+  color: #9cdcfe;
+}
+
+/* ---------- Status pill ---------- */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.status-dot {
+  font-size: 8px;
+  transition: color 0.2s;
+}
+
+.status-ready  { color: #4ec9b0; }
+.status-busy   { color: #dcdcaa; }
+.status-error  { color: #f44747; }
+
+.status-ready  .status-dot { color: #4ec9b0; }
+.status-busy   .status-dot { color: #dcdcaa; animation: pulse 1s ease-in-out infinite; }
+.status-error  .status-dot { color: #f44747; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+/* ---------- Terminal output ---------- */
 .terminal-output {
   flex: 1 1 auto;
   overflow-y: auto;
@@ -122,13 +186,8 @@ html, body {
   color: #d4d4d4;
 }
 
-.term-error {
-  color: #f44747;
-}
-
-.term-info {
-  color: #569cd6;
-}
+.term-error { color: #f44747; }
+.term-info  { color: #569cd6; }
 
 /* ---------- Help page ---------- */
 .page {
@@ -150,18 +209,13 @@ html, body {
   color: #569cd6;
 }
 
-.page p {
-  margin-bottom: 12px;
-}
+.page p { margin-bottom: 12px; }
 
 .page a {
   color: #569cd6;
   text-decoration: none;
 }
-
-.page a:hover {
-  text-decoration: underline;
-}
+.page a:hover { text-decoration: underline; }
 
 .page kbd {
   background: #3a3d41;
