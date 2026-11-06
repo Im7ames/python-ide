@@ -11,350 +11,300 @@
   <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
 
   <style>
-    html, body { height: 100%; overflow: hidden; }
+    html, body { height: 100%; overflow: hidden; margin: 0; }
+    body { display: flex; flex-direction: column;
+           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
-    /* Layout */
-    body { display: flex; flex-direction: column; }
-    #mainArea { flex: 1; display: flex; min-height: 0; min-width: 0; position: relative; }
+    /* Fast taps on touch */
+    button, a, select, input { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+
+    /* ---------- Layout ---------- */
+    #mainArea { flex: 1; display: flex; min-height: 0; min-width: 0; }
 
     #editorPane, #terminalPane {
       min-width: 0; min-height: 0;
-      display: flex; flex-direction: column;
-      overflow: hidden;
-      position: relative;
+      display: flex; flex-direction: column; overflow: hidden;
     }
 
-    #editorContainer { width: 100%; height: 100%; }
-
-    /* Split mode */
     .layout-split[data-split-direction="horizontal"] { flex-direction: row; }
     .layout-split[data-split-direction="vertical"]   { flex-direction: column; }
-    .layout-split #editorPane   { flex: 0.5 1 0; }
-    .layout-split #terminalPane { flex: 0.5 1 0; }
-    .layout-split #divider { display: flex; }
 
-    /* Toggle mode */
+    .layout-split #editorPane,
+    .layout-split #terminalPane { flex-basis: 0; flex-shrink: 1; }
+    .layout-split #divider      { display: flex; }
+
     .layout-toggle #divider { display: none; }
-    .layout-toggle #editorPane, .layout-toggle #terminalPane { flex: 1 1 0; }
+    .layout-toggle #editorPane,
+    .layout-toggle #terminalPane { flex: 1 1 0; }
     .layout-toggle[data-active-view="editor"]   #terminalPane { display: none; }
     .layout-toggle[data-active-view="terminal"] #editorPane   { display: none; }
 
-    /* Divider */
+    #editorContainer { width: 100%; height: 100%; }
+
+    /* ---------- Divider (touch-friendly) ---------- */
     #divider {
       flex-shrink: 0;
       position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       background: transparent;
-      transition: background .15s;
       touch-action: none;
-      user-select: none;
+      user-select: none; -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
       z-index: 5;
+      transition: background .15s;
     }
     #divider::before {
       content: '';
       background: #6b7280;
       border-radius: 999px;
-      opacity: .25;
-      transition: opacity .15s, background .15s;
+      opacity: .3;
+      transition: opacity .15s, background .15s, transform .15s;
     }
-    #divider:hover { background: rgba(59, 130, 246, .08); }
+    /* Invisible wider grab area for touch */
+    #divider::after { content: ''; position: absolute; }
+
+    [data-split-direction="horizontal"] #divider { width: 8px; cursor: col-resize; }
+    [data-split-direction="horizontal"] #divider::before { width: 2px; height: 32px; }
+    [data-split-direction="horizontal"] #divider::after  { top: 0; bottom: 0; left: -10px; right: -10px; }
+
+    [data-split-direction="vertical"] #divider { height: 8px; cursor: row-resize; }
+    [data-split-direction="vertical"] #divider::before { width: 32px; height: 2px; }
+    [data-split-direction="vertical"] #divider::after  { left: 0; right: 0; top: -10px; bottom: -10px; }
+
+    #divider:hover, #divider.dragging { background: rgba(59,130,246,.08); }
     #divider:hover::before, #divider.dragging::before { opacity: 1; background: #3b82f6; }
-    [data-split-direction="horizontal"] #divider { width: 6px; cursor: col-resize; }
-    [data-split-direction="horizontal"] #divider::before { width: 2px; height: 36px; }
-    [data-split-direction="vertical"] #divider { height: 6px; cursor: row-resize; }
-    [data-split-direction="vertical"] #divider::before { width: 36px; height: 2px; }
+    #divider.dragging::before { transform: scale(1.35); }
 
-    /* FABs */
-    .fab-stack {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      z-index: 40;
-    }
-    .fab {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      border: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 14px rgba(0,0,0,.18);
-      cursor: pointer;
-      transition: transform .15s, box-shadow .15s, opacity .15s, background .15s;
-      color: #fff;
-      font-size: 17px;
-      overflow: hidden;
-      padding: 0;
-    }
-    .fab:hover:not(:disabled) { transform: scale(1.08); }
-    .fab:disabled { opacity: .4; cursor: not-allowed; }
-    .fab-green { background: #16a34a; }
-    .fab-green:hover:not(:disabled) { background: #15803d; }
-    .fab-red { background: #dc2626; }
-    .fab-red:hover:not(:disabled) { background: #b91c1c; }
-    .fab-yellow { background: #ca8a04; }
-    .fab-yellow:hover:not(:disabled) { background: #a16207; }
-    .fab-ghost {
-      background: rgba(55, 65, 81, .55);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-    }
-    .fab-ghost:hover:not(:disabled) { background: rgba(55, 65, 81, .8); }
-    .fab img { width: 100%; height: 100%; object-fit: cover; }
+    /* ---------- Terminal ---------- */
+    #terminalWrap { flex: 1; display: flex; flex-direction: column; min-height: 0;
+                    background: #0d1117; color: #d1d5db; }
 
-    /* Terminal */
-    #terminalPane {
-      background: #0d1117;
-      color: #d1d5db;
+    .terminal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 12px;
+      background: #161b22; border-bottom: 1px solid #21262d;
+      font-size: 12px; color: #8b949e; flex-shrink: 0;
     }
-    .term-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 6px 14px;
-      border-bottom: 1px solid #1f2937;
-      font-size: 12px;
-      flex-shrink: 0;
-      color: #9ca3af;
+    .terminal-title { display: inline-flex; align-items: center; gap: 6px; }
+    .terminal-title i { color: #60a5fa; font-size: 11px; }
+
+    .terminal-clear {
+      background: transparent; border: 0; color: inherit; cursor: pointer;
+      padding: 4px 6px; border-radius: 4px; font-size: 12px;
+      display: inline-flex; align-items: center; gap: 5px;
     }
-    .term-header .term-label {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .term-header-btn {
-      background: transparent;
-      border: 0;
-      color: inherit;
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      transition: background .15s, color .15s;
-    }
-    .term-header-btn:hover { background: rgba(255,255,255,.08); color: #f9fafb; }
+    .terminal-clear:hover { background: rgba(255,255,255,.06); color: #e5e7eb; }
 
     #terminal {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 14px;
+      flex: 1; overflow-y: auto; padding: 12px 14px;
       font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
-      font-size: 13px;
-      line-height: 1.45;
-      white-space: pre-wrap;
-      word-break: break-word;
-      margin: 0;
+      font-size: 13px; line-height: 1.45;
+      white-space: pre-wrap; word-break: break-word; margin: 0;
     }
 
     #terminalInputRow {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      display: flex; align-items: center; gap: 8px;
       padding: 8px 14px;
-      border-top: 1px solid #1f2937;
-      background: #0d1117;
+      border-top: 1px solid #21262d; background: #0d1117;
+      flex-shrink: 0;
     }
     #terminalInputRow.hidden { display: none; }
-    .term-prompt { color: #4ade80; font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; user-select: none; }
+
+    .term-prompt { color: #4ade80; font-family: inherit; font-size: 13px; user-select: none; }
     #terminalInput {
-      flex: 1;
-      background: transparent;
-      border: 0;
-      outline: 0;
-      font-family: inherit;
-      font-size: 13px;
-      color: #d1d5db;
-      caret-color: #4ade80;
+      flex: 1; background: transparent; border: 0; outline: 0;
+      font-family: inherit; font-size: 13px; color: #d1d5db; padding: 4px 0;
     }
 
     .term-error   { color: #f87171; }
     .term-info    { color: #60a5fa; }
     .term-success { color: #4ade80; }
 
-    /* Toast */
+    /* ---------- Toast ---------- */
     #toast {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 500;
-      z-index: 100;
-      opacity: 0;
-      transition: opacity .2s;
-      pointer-events: none;
-      box-shadow: 0 6px 20px rgba(0,0,0,.18);
+      position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+      padding: 8px 16px; border-radius: 8px;
+      font-size: 13px; font-weight: 500;
+      z-index: 100; opacity: 0; transition: opacity .2s;
+      pointer-events: none; box-shadow: 0 6px 18px rgba(0,0,0,.15);
     }
     #toast.visible { opacity: 1; }
     #toast.info    { background: #2563eb; color: #fff; }
     #toast.success { background: #16a34a; color: #fff; }
     #toast.error   { background: #dc2626; color: #fff; }
 
-    /* Settings drawer */
+    /* ---------- Settings drawer ---------- */
     #settingsDrawer {
-      position: fixed;
-      top: 0;
-      right: 0;
-      height: 100%;
-      width: 340px;
-      background: #fff;
-      z-index: 60;
-      transform: translateX(100%);
-      transition: transform .25s ease;
-      display: flex;
-      flex-direction: column;
-      box-shadow: -8px 0 24px rgba(0,0,0,.1);
+      position: fixed; top: 0; right: 0; height: 100%;
+      width: 340px; max-width: 90vw;
+      background: #fff; z-index: 60;
+      transform: translateX(100%); transition: transform .25s ease;
+      display: flex; flex-direction: column;
+      box-shadow: -8px 0 24px rgba(0,0,0,.08);
     }
     .dark #settingsDrawer { background: #111827; color: #e5e7eb; }
     #settingsDrawer.open { transform: translateX(0); }
 
     #settingsBackdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.35);
-      z-index: 55;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .2s;
+      position: fixed; inset: 0; background: rgba(0,0,0,.35);
+      z-index: 55; opacity: 0; pointer-events: none; transition: opacity .2s;
     }
     #settingsBackdrop.open { opacity: 1; pointer-events: auto; }
 
+    .settings-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid #e5e7eb;
+    }
+    .dark .settings-header { border-color: #1f2937; }
+
+    .settings-close {
+      background: transparent; border: 0; cursor: pointer; color: inherit;
+      width: 32px; height: 32px; border-radius: 6px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .settings-close:hover { background: rgba(0,0,0,.06); }
+    .dark .settings-close:hover { background: rgba(255,255,255,.08); }
+
+    .settings-body { flex: 1; overflow-y: auto; }
+
     .settings-section { padding: 16px 20px; border-bottom: 1px solid #e5e7eb; }
     .dark .settings-section { border-color: #1f2937; }
+
     .settings-label {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      opacity: .6;
-      margin-bottom: 10px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .04em; opacity: .6; margin-bottom: 10px;
     }
 
+    /* Avatar: full aspect preserved, no pre-crop, shown larger */
     .avatar-preview {
-      width: 96px;
-      height: 96px;
-      border-radius: 14px;
-      overflow: hidden;
+      width: 96px; height: 96px; border-radius: 50%; overflow: hidden;
       background: #e5e7eb;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #9ca3af;
-      font-size: 30px;
-      cursor: pointer;
-      transition: opacity .15s;
-      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: #9ca3af; font-size: 32px; cursor: pointer;
+      transition: opacity .15s, border-color .15s;
+      flex-shrink: 0; border: 2px solid transparent;
     }
-    .dark .avatar-preview { background: #1f2937; }
-    .avatar-preview:hover { opacity: .85; }
-    .avatar-preview img { width: 100%; height: 100%; object-fit: contain; }
+    .dark .avatar-preview { background: #374151; }
+    .avatar-preview:hover { opacity: .85; border-color: #3b82f6; }
+    .avatar-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-    .fade-in { animation: fadeIn .3s ease-in; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .settings-input, .settings-select {
+      width: 100%; padding: 8px 12px; border-radius: 6px;
+      border: 1px solid #d1d5db; background: #fff; color: #111827;
+      font-size: 14px; outline: none;
+    }
+    .settings-input:focus, .settings-select:focus {
+      border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+    }
+    .dark .settings-input, .dark .settings-select {
+      background: #1f2937; color: #f9fafb; border-color: #374151;
+    }
+    .settings-select { margin-bottom: 12px; }
+
+    .settings-link {
+      background: transparent; border: 0; cursor: pointer; padding: 0;
+      font-size: 13px; color: #2563eb; text-align: left;
+    }
+    .settings-link:hover { text-decoration: underline; }
+    .dark .settings-link { color: #60a5fa; }
+    .settings-link.danger { color: #dc2626; }
+    .dark .settings-link.danger { color: #f87171; }
   </style>
 </head>
 
 <body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-
-  <main id="mainArea">
-    <!-- Editor pane -->
+  <!-- ============ Main split / toggle area ============ -->
+  <main id="mainArea" class="layout-split" data-split-direction="horizontal">
     <div id="editorPane">
       <div id="editorContainer"></div>
-      <div class="fab-stack">
-        <button id="runBtn" class="fab fab-green" title="Run (Ctrl+Enter)">
-          <i class="fa-solid fa-play"></i>
-        </button>
-        <button id="installBtn" class="fab fab-yellow" title="Install package">
-          <i class="fa-solid fa-download"></i>
-        </button>
-        <button id="settingsBtn" class="fab fab-ghost" title="Settings">
-          <i class="fa-solid fa-gear"></i>
-        </button>
-      </div>
     </div>
 
-    <!-- Divider -->
     <div id="divider"></div>
 
-    <!-- Terminal pane -->
     <div id="terminalPane">
-      <div class="term-header">
-        <button id="backBtn" class="term-header-btn hidden" title="Back to editor (Escape)">
-          <i class="fa-solid fa-arrow-left"></i> Editor
-        </button>
-        <span class="term-label">
-          <i class="fa-solid fa-terminal"></i> Terminal
-        </span>
-        <button id="clearBtn" class="term-header-btn" title="Clear terminal">
-          <i class="fa-solid fa-broom"></i> Clear
-        </button>
-      </div>
-      <pre id="terminal"></pre>
-      <div id="terminalInputRow" class="hidden">
-        <span class="term-prompt">›</span>
-        <input id="terminalInput" type="text" autocomplete="off" spellcheck="false" />
+      <div id="terminalWrap">
+        <div class="terminal-header">
+          <span class="terminal-title"><i class="fas fa-terminal"></i> Terminal</span>
+          <button id="clearBtn" class="terminal-clear">
+            <i class="fas fa-broom"></i><span>Clear</span>
+          </button>
+        </div>
+        <pre id="terminal"></pre>
+        <div id="terminalInputRow" class="hidden">
+          <span class="term-prompt">›</span>
+          <input id="terminalInput" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" />
+        </div>
       </div>
     </div>
   </main>
 
-  <!-- Settings drawer -->
+  <!-- ============ Floating action buttons ============ -->
+  <div class="fixed top-6 right-6 flex flex-col gap-3 z-50">
+    <button id="runBtn"
+      class="bg-green-600 hover:bg-green-700 active:scale-95 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-green-300/50 flex items-center justify-center"
+      title="Run (Ctrl+Enter)">
+      <i class="fas fa-play text-xl"></i>
+    </button>
+
+    <button id="viewSwitchBtn"
+      class="bg-gray-600 hover:bg-gray-700 active:scale-95 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-200 hover:scale-110 flex items-center justify-center opacity-30 hover:opacity-100"
+      title="Switch view">
+      <i class="fas fa-terminal text-lg"></i>
+    </button>
+
+    <button id="installBtn"
+      class="bg-yellow-600 hover:bg-yellow-700 active:scale-95 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-200 hover:scale-110 flex items-center justify-center opacity-30 hover:opacity-100"
+      title="Install package (micropip)">
+      <i class="fas fa-download text-lg"></i>
+    </button>
+
+    <button id="settingsBtn"
+      class="bg-gray-600 hover:bg-gray-700 active:scale-95 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-200 hover:scale-110 flex items-center justify-center opacity-30 hover:opacity-100 overflow-hidden"
+      title="Settings">
+      <i class="fas fa-gear text-lg"></i>
+    </button>
+  </div>
+
+  <!-- ============ Settings drawer ============ -->
   <div id="settingsBackdrop"></div>
   <aside id="settingsDrawer">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+    <div class="settings-header">
       <h2 class="font-semibold text-base">Settings</h2>
-      <button id="closeSettings" class="w-8 h-8 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
+      <button id="closeSettings" class="settings-close"><i class="fas fa-xmark"></i></button>
     </div>
-
-    <div class="flex-1 overflow-y-auto">
-      <!-- Profile -->
+    <div class="settings-body">
       <section class="settings-section">
         <div class="settings-label">Profile</div>
-        <div class="flex items-start gap-4 mb-3">
+        <div class="flex items-center gap-4 mb-3">
           <div id="avatarPreview" class="avatar-preview">
-            <i class="fa-solid fa-user"></i>
+            <i class="fas fa-user"></i>
           </div>
-          <div class="flex flex-col gap-2 pt-1">
-            <button id="avatarChange" class="text-sm text-blue-600 dark:text-blue-400 hover:underline text-left">Upload photo</button>
-            <button id="avatarClear" class="text-xs text-gray-500 hover:underline text-left">Remove</button>
+          <div class="flex flex-col gap-1">
+            <button id="avatarChange" class="settings-link">Change photo</button>
+            <button id="avatarClear" class="settings-link text-xs opacity-70">Remove</button>
           </div>
           <input type="file" id="avatarInput" accept="image/*" class="hidden" />
         </div>
-        <input id="nameInput" type="text" placeholder="Your name (optional)"
-          class="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <input id="nameInput" type="text" placeholder="Your name (optional)" class="settings-input" />
       </section>
 
-      <!-- Layout -->
       <section class="settings-section">
         <div class="settings-label">Layout</div>
-        <label class="block text-sm mb-1">Mode</label>
-        <select id="layoutType" class="w-full mb-3 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm">
-          <option value="split">Split (both visible)</option>
-          <option value="toggle">Toggle (one at a time)</option>
+        <label class="block text-xs mb-1 opacity-70">Mode</label>
+        <select id="layoutType" class="settings-select">
+          <option value="split">Split</option>
+          <option value="toggle">Toggle (single pane)</option>
         </select>
 
-        <label class="block text-sm mb-1" id="splitDirLabel">Split direction</label>
-        <select id="splitDirection" class="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm">
+        <label class="block text-xs mb-1 opacity-70" id="splitDirLabel">Split direction</label>
+        <select id="splitDirection" class="settings-select">
           <option value="horizontal">Left / Right</option>
           <option value="vertical">Top / Bottom</option>
         </select>
       </section>
 
       <section class="settings-section">
-        <button id="resetSettings" class="text-sm text-red-600 dark:text-red-400 hover:underline">Reset all settings</button>
+        <button id="resetSettings" class="settings-link danger">Reset all settings</button>
       </section>
     </div>
   </aside>
@@ -363,7 +313,18 @@
 
   <script>
     /* ============================================================
-       Storage
+       Theme
+       ============================================================ */
+    const prefersDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const applyThemeClass = () => document.documentElement.classList.toggle('dark', prefersDark());
+    applyThemeClass();
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      applyThemeClass();
+      if (window.monacoEditor) monaco.editor.setTheme(prefersDark() ? 'vs-dark' : 'vs-light');
+    });
+
+    /* ============================================================
+       Storage + state
        ============================================================ */
     const STORAGE_KEY = 'python-ide:v2';
     const DEFAULT_SETTINGS = {
@@ -376,49 +337,45 @@
 
     function loadSettings() {
       try {
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-        return {
-          ...DEFAULT_SETTINGS,
-          ...saved,
-          profile: { ...DEFAULT_SETTINGS.profile, ...(saved.profile || {}) },
-        };
+        const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        return { ...DEFAULT_SETTINGS, ...raw, profile: { ...DEFAULT_SETTINGS.profile, ...(raw.profile || {}) } };
       } catch { return structuredClone(DEFAULT_SETTINGS); }
     }
+    const state = { settings: loadSettings() };
     function saveSettings() {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.settings)); }
-      catch { showToast('Could not save settings', 'error'); }
+      catch { showToast('Could not save', 'error'); }
     }
-    const state = { settings: loadSettings() };
 
     /* ============================================================
-       DOM
+       Refs
        ============================================================ */
-    const $ = id => document.getElementById(id);
-    const mainArea = $('mainArea');
-    const editorPane = $('editorPane');
-    const terminalPane = $('terminalPane');
-    const divider = $('divider');
-    const terminal = $('terminal');
+    const $ = (id) => document.getElementById(id);
+    const mainArea       = $('mainArea');
+    const editorPane     = $('editorPane');
+    const terminalPane   = $('terminalPane');
+    const divider        = $('divider');
+    const terminal       = $('terminal');
     const terminalInputRow = $('terminalInputRow');
-    const terminalInput = $('terminalInput');
-    const runBtn = $('runBtn');
-    const installBtn = $('installBtn');
-    const clearBtn = $('clearBtn');
-    const settingsBtn = $('settingsBtn');
-    const backBtn = $('backBtn');
-    const toastEl = $('toast');
+    const terminalInput  = $('terminalInput');
+    const runBtn         = $('runBtn');
+    const viewSwitchBtn  = $('viewSwitchBtn');
+    const installBtn     = $('installBtn');
+    const settingsBtn    = $('settingsBtn');
+    const clearBtn       = $('clearBtn');
+    const toastEl        = $('toast');
 
-    const settingsDrawer = $('settingsDrawer');
+    const settingsDrawer   = $('settingsDrawer');
     const settingsBackdrop = $('settingsBackdrop');
-    const closeSettings = $('closeSettings');
-    const avatarPreview = $('avatarPreview');
-    const avatarInput = $('avatarInput');
-    const avatarChange = $('avatarChange');
-    const avatarClear = $('avatarClear');
-    const nameInput = $('nameInput');
-    const layoutType = $('layoutType');
-    const splitDirection = $('splitDirection');
-    const splitDirLabel = $('splitDirLabel');
+    const closeSettingsBtn = $('closeSettings');
+    const avatarPreview    = $('avatarPreview');
+    const avatarInput      = $('avatarInput');
+    const avatarChange     = $('avatarChange');
+    const avatarClear      = $('avatarClear');
+    const nameInput        = $('nameInput');
+    const layoutType       = $('layoutType');
+    const splitDirection   = $('splitDirection');
+    const splitDirLabel    = $('splitDirLabel');
     const resetSettingsBtn = $('resetSettings');
 
     /* ============================================================
@@ -435,7 +392,7 @@
     /* ============================================================
        Terminal
        ============================================================ */
-    function stripAnsi(s) { return s.replace(/\x1B\[[0-9;]*[A-Za-z]/g, ''); }
+    const stripAnsi = (s) => s.replace(/\x1B\[[0-9;]*[A-Za-z]/g, '');
 
     function appendToTerminal(text, kind = 'output') {
       if (!text) return;
@@ -445,10 +402,10 @@
       terminal.appendChild(span);
       terminal.scrollTop = terminal.scrollHeight;
     }
-    function clearTerminal() { terminal.textContent = ''; }
+    const clearTerminal = () => { terminal.textContent = ''; };
 
     /* ============================================================
-       Input
+       Unified terminal input
        ============================================================ */
     let pendingInput = null;
 
@@ -458,7 +415,7 @@
       }
       terminalInputRow.classList.remove('hidden');
       terminalInput.value = '';
-      setTimeout(() => terminalInput.focus(), 30);
+      requestAnimationFrame(() => terminalInput.focus());
     }
     function hideInputUI() {
       terminalInputRow.classList.add('hidden');
@@ -471,16 +428,14 @@
         const value = terminalInput.value;
         appendToTerminal(value + '\n');
         hideInputUI();
-        const p = pendingInput;
-        pendingInput = null;
+        const p = pendingInput; pendingInput = null;
         if (p) p.resolve(value);
-      } else if (e.key === 'Escape' && pendingInput && pendingInput.cancel) {
+      } else if (e.key === 'Escape' && pendingInput) {
         e.preventDefault();
-        const p = pendingInput;
-        pendingInput = null;
+        const p = pendingInput; pendingInput = null;
         hideInputUI();
         appendToTerminal('\n[cancelled]\n', 'info');
-        p.cancel();
+        if (p.cancel) p.cancel();
       }
     });
 
@@ -489,49 +444,52 @@
     });
 
     function requestTerminalInput() {
-      return new Promise(resolve => {
-        pendingInput = { resolve };
-        showInputUI();
-      });
+      return new Promise((resolve) => { pendingInput = { resolve }; showInputUI(); });
     }
     function handlePythonInput(future) {
       pendingInput = {
-        resolve: v => { try { future.set_result(v); } catch(e) { console.error(e); } },
-        cancel: () => { try { future.cancel(); } catch {} },
+        resolve: (v) => { try { future.set_result(v); } catch (e) { console.error(e); } },
+        cancel:  () => { try { future.cancel(); } catch {} },
       };
       showInputUI();
     }
 
     /* ============================================================
-       Layout
+       Layout application
        ============================================================ */
     function applyLayout() {
       const s = state.settings;
-      mainArea.className = 'layout-' + s.layout + ' fade-in';
+      mainArea.className = 'layout-' + s.layout;
       mainArea.setAttribute('data-split-direction', s.splitDirection);
       mainArea.setAttribute('data-active-view', s.activeView);
 
-      editorPane.style.flexGrow = s.splitRatio;
+      editorPane.style.flexGrow   = s.splitRatio;
       terminalPane.style.flexGrow = 1 - s.splitRatio;
 
-      // Back button visible only in toggle-terminal
-      const showBack = s.layout === 'toggle' && s.activeView === 'terminal';
-      backBtn.classList.toggle('hidden', !showBack);
+      // View-switch FAB visible only in toggle mode
+      viewSwitchBtn.style.display = s.layout === 'toggle' ? '' : 'none';
+      viewSwitchBtn.innerHTML = s.activeView === 'editor'
+        ? '<i class="fas fa-terminal text-lg"></i>'
+        : '<i class="fas fa-code text-lg"></i>';
 
-      // Settings UI sync
-      layoutType.value = s.layout;
+      // Sync settings UI
+      layoutType.value     = s.layout;
       splitDirection.value = s.splitDirection;
       splitDirLabel.style.opacity = s.layout === 'split' ? '1' : '.4';
-      splitDirection.disabled = s.layout !== 'split';
-      nameInput.value = s.profile.name || '';
+      splitDirection.disabled     = s.layout !== 'split';
+      nameInput.value             = s.profile.name || '';
 
-      // Avatar
+      // Avatar in settings + FAB
       if (s.profile.avatar) {
         avatarPreview.innerHTML = `<img src="${s.profile.avatar}" alt="" />`;
-        settingsBtn.innerHTML = `<img src="${s.profile.avatar}" alt="" />`;
+        settingsBtn.innerHTML   = `<img src="${s.profile.avatar}" alt="" />`;
+        settingsBtn.classList.remove('opacity-30');
+        settingsBtn.classList.add('opacity-100');
       } else {
-        avatarPreview.innerHTML = '<i class="fa-solid fa-user"></i>';
-        settingsBtn.innerHTML = '<i class="fa-solid fa-gear"></i>';
+        avatarPreview.innerHTML = '<i class="fas fa-user"></i>';
+        settingsBtn.innerHTML   = '<i class="fas fa-gear text-lg"></i>';
+        settingsBtn.classList.add('opacity-30');
+        settingsBtn.classList.remove('opacity-100');
       }
 
       requestAnimationFrame(() => { if (monacoEditor) monacoEditor.layout(); });
@@ -543,55 +501,66 @@
       applyLayout();
     }
 
-    /* Divider drag */
+    viewSwitchBtn.addEventListener('click', () => {
+      setActiveView(state.settings.activeView === 'editor' ? 'terminal' : 'editor');
+    });
+
+    /* ============================================================
+       Divider drag (touch-friendly)
+       ============================================================ */
+    let drag = null;
+
     divider.addEventListener('pointerdown', (e) => {
       if (state.settings.layout !== 'split') return;
+      if (e.button !== undefined && e.button !== 0) return;
       e.preventDefault();
-      divider.classList.add('dragging');
       divider.setPointerCapture(e.pointerId);
-      const dir = state.settings.splitDirection;
+      divider.classList.add('dragging');
       const rect = mainArea.getBoundingClientRect();
+      drag = { id: e.pointerId, dir: state.settings.splitDirection, rect };
+    });
 
-      const onMove = (ev) => {
-        let ratio = dir === 'horizontal'
-          ? (ev.clientX - rect.left) / rect.width
-          : (ev.clientY - rect.top) / rect.height;
-        ratio = Math.max(0.15, Math.min(0.85, ratio));
-        state.settings.splitRatio = ratio;
-        editorPane.style.flexGrow = ratio;
-        terminalPane.style.flexGrow = 1 - ratio;
-      };
-      const onUp = () => {
-        divider.classList.remove('dragging');
-        divider.removeEventListener('pointermove', onMove);
-        divider.removeEventListener('pointerup', onUp);
-        saveSettings();
-        if (monacoEditor) monacoEditor.layout();
-      };
-      divider.addEventListener('pointermove', onMove);
-      divider.addEventListener('pointerup', onUp);
+    divider.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const { dir, rect } = drag;
+      let ratio = dir === 'horizontal'
+        ? (e.clientX - rect.left) / rect.width
+        : (e.clientY - rect.top)  / rect.height;
+      ratio = Math.max(0.15, Math.min(0.85, ratio));
+      state.settings.splitRatio = ratio;
+      editorPane.style.flexGrow   = ratio;
+      terminalPane.style.flexGrow = 1 - ratio;
+    });
+
+    function endDrag(e) {
+      if (!drag) return;
+      drag = null;
+      divider.classList.remove('dragging');
+      try { divider.releasePointerCapture(e.pointerId); } catch {}
+      saveSettings();
+      if (monacoEditor) monacoEditor.layout();
+    }
+    divider.addEventListener('pointerup', endDrag);
+    divider.addEventListener('pointercancel', endDrag);
+    divider.addEventListener('lostpointercapture', endDrag);
+
+    divider.addEventListener('dblclick', () => {
+      state.settings.splitRatio = 0.5;
+      saveSettings();
+      applyLayout();
     });
 
     /* ============================================================
        Settings drawer
        ============================================================ */
-    function openSettings() {
-      settingsDrawer.classList.add('open');
-      settingsBackdrop.classList.add('open');
-    }
-    function closeSettingsPanel() {
-      settingsDrawer.classList.remove('open');
-      settingsBackdrop.classList.remove('open');
-    }
+    function openSettings()  { settingsDrawer.classList.add('open');  settingsBackdrop.classList.add('open'); }
+    function closeSettings() { settingsDrawer.classList.remove('open'); settingsBackdrop.classList.remove('open'); }
     settingsBtn.addEventListener('click', openSettings);
-    closeSettings.addEventListener('click', closeSettingsPanel);
-    settingsBackdrop.addEventListener('click', closeSettingsPanel);
+    closeSettingsBtn.addEventListener('click', closeSettings);
+    settingsBackdrop.addEventListener('click', closeSettings);
 
     layoutType.addEventListener('change', () => {
       state.settings.layout = layoutType.value;
-      if (state.settings.layout === 'toggle' && state.settings.activeView === 'terminal' && editorPane.contains(document.activeElement)) {
-        state.settings.activeView = 'editor';
-      }
       saveSettings(); applyLayout();
     });
     splitDirection.addEventListener('change', () => {
@@ -603,11 +572,11 @@
       saveSettings();
     });
 
-    /* Avatar */
     avatarChange.addEventListener('click', () => avatarInput.click());
     avatarPreview.addEventListener('click', () => avatarInput.click());
+
     avatarInput.addEventListener('change', async () => {
-      const file = avatarInput.files?.[0];
+      const file = avatarInput.files && avatarInput.files[0];
       if (!file) return;
       try {
         const dataUrl = await resizeImage(file, 256);
@@ -618,12 +587,14 @@
         showToast('Could not load image', 'error');
       }
     });
+
     avatarClear.addEventListener('click', () => {
       state.settings.profile.avatar = null;
       saveSettings(); applyLayout();
     });
 
-    // Preserves aspect ratio — no cropping. Scaled to fit in maxSize×maxSize.
+    /* Scale the WHOLE image (aspect preserved, NO center-crop).
+       Old version cropped 128px from the middle of a large photo -> looked zoomed. */
     function resizeImage(file, maxSize) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -631,13 +602,13 @@
           const img = new Image();
           img.onload = () => {
             const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
-            const w = Math.max(1, Math.round(img.width * scale));
+            const w = Math.max(1, Math.round(img.width  * scale));
             const h = Math.max(1, Math.round(img.height * scale));
             const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            resolve(canvas.toDataURL('image/jpeg', 0.88));
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
           };
           img.onerror = reject;
           img.src = ev.target.result;
@@ -658,15 +629,13 @@
        Monaco
        ============================================================ */
     let monacoEditor = null;
-    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (isDark) document.documentElement.classList.add('dark');
 
     require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
     require(['vs/editor/editor.main'], () => {
       monacoEditor = monaco.editor.create($('editorContainer'), {
-        value: `# Press Ctrl+Enter or click the Run button\n\nprint("Hello, World!")\n`,
+        value: `# Welcome — press Ctrl+Enter or the ▶ button\n\nprint("Hello, World!")\n`,
         language: 'python',
-        theme: isDark ? 'vs-dark' : 'vs-light',
+        theme: prefersDark() ? 'vs-dark' : 'vs-light',
         fontSize: 14,
         minimap: { enabled: false },
         automaticLayout: true,
@@ -690,11 +659,9 @@
       try {
         showToast('Loading Python…', 'info');
         pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/' });
-
         pyodide.setStdout({ batched: (m) => appendToTerminal(m + '\n') });
         pyodide.setStderr({ batched: (m) => appendToTerminal(m + '\n', 'error') });
-        pyodide.setStdin({ stdin: () => { throw new Error('use input()'); } });
-
+        pyodide.setStdin({ stdin: () => { throw new Error('Use terminal input'); } });
         pyodide.globals.set('__ide_show_input__', (future) => handlePythonInput(future));
 
         pyodide.runPython(`
@@ -704,7 +671,7 @@ async def __ide_async_input__(prompt=''):
     if prompt:
         print(prompt, end='', flush=True)
     loop = asyncio.get_running_loop()
-    fut = loop.create_future()
+    fut  = loop.create_future()
     __ide_show_input__(fut)
     return await fut
 
@@ -732,8 +699,10 @@ async def __ide_run__(code_str):
     wrapped = ast.Module(
         body=[ast.AsyncFunctionDef(
             name='__ide_main__',
-            args=ast.arguments(posonlyargs=[], args=[], vararg=None,
-                kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[]),
+            args=ast.arguments(
+                posonlyargs=[], args=[], vararg=None,
+                kwonlyargs=[], kw_defaults=[], kwarg=None, defaults=[],
+            ),
             body=tree.body or [ast.Pass()],
             decorator_list=[],
         )],
@@ -746,12 +715,11 @@ async def __ide_run__(code_str):
     finally:
         globals().pop('__ide_main__', None)
 `);
-
         pyodideReady = true;
         showToast('Python ready', 'success');
       } catch (e) {
         showToast('Pyodide load failed', 'error');
-        appendToTerminal(String(e?.message || e) + '\n', 'error');
+        appendToTerminal(String(e && e.message || e) + '\n', 'error');
       }
     })();
 
@@ -760,15 +728,14 @@ async def __ide_run__(code_str):
        ============================================================ */
     function updateRunBtn() {
       if (isRunning) {
-        runBtn.className = 'fab fab-red';
-        runBtn.innerHTML = '<i class="fa-solid fa-stop"></i>';
-        runBtn.title = 'Stop';
+        runBtn.className = 'bg-red-600 hover:bg-red-700 active:scale-95 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-200 hover:scale-110 flex items-center justify-center';
+        runBtn.innerHTML = '<i class="fas fa-stop text-xl"></i>';
       } else {
-        runBtn.className = 'fab fab-green';
-        runBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
-        runBtn.title = 'Run (Ctrl+Enter)';
+        runBtn.className = 'bg-green-600 hover:bg-green-700 active:scale-95 text-white w-14 h-14 rounded-full shadow-lg transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-4 focus:ring-green-300/50 flex items-center justify-center';
+        runBtn.innerHTML = '<i class="fas fa-play text-xl"></i>';
       }
     }
+    updateRunBtn();
 
     async function runCode() {
       if (isRunning) { stopExecution(); return; }
@@ -781,8 +748,7 @@ async def __ide_run__(code_str):
       clearTerminal();
       appendToTerminal('$ python\n', 'info');
 
-      isRunning = true;
-      updateRunBtn();
+      isRunning = true; updateRunBtn();
       showToast('Running…', 'info');
 
       try {
@@ -791,7 +757,7 @@ async def __ide_run__(code_str):
         appendToTerminal('\n[Finished]\n', 'success');
         showToast('Finished', 'success');
       } catch (err) {
-        appendToTerminal('\n' + String(err?.message || err) + '\n', 'error');
+        appendToTerminal('\n' + String(err && err.message || err) + '\n', 'error');
         showToast('Error', 'error');
       } finally {
         isRunning = false;
@@ -808,9 +774,9 @@ async def __ide_run__(code_str):
         hideInputUI();
         p.cancel();
       }
+      appendToTerminal('\n[Stopped]\n', 'info');
       isRunning = false;
       updateRunBtn();
-      appendToTerminal('\n[Stopped]\n', 'info');
       showToast('Stopped', 'info');
     }
 
@@ -822,9 +788,11 @@ async def __ide_run__(code_str):
     installBtn.addEventListener('click', async () => {
       if (!pyodideReady) { showToast('Python still loading…', 'info'); return; }
       if (state.settings.layout === 'toggle') setActiveView('terminal');
+
       appendToTerminal('Package to install (micropip): ', 'info');
       const pkg = (await requestTerminalInput()).trim();
       if (!pkg) return;
+
       showToast(`Installing ${pkg}…`, 'info');
       try {
         await pyodide.loadPackage('micropip');
@@ -832,10 +800,9 @@ async def __ide_run__(code_str):
         appendToTerminal(`✓ ${pkg} installed\n`, 'success');
         showToast(`${pkg} installed`, 'success');
       } catch (err) {
-        const msg = String(err?.message || err);
+        const msg = String(err && err.message || err);
         const hint = msg.includes('pure Python')
-          ? '\nHint: this package needs native compilation and cannot run in the browser.'
-          : '';
+          ? '\nHint: this package needs native compilation and cannot run in the browser.' : '';
         appendToTerminal(`✗ ${msg}${hint}\n`, 'error');
         showToast('Install failed', 'error');
       }
@@ -845,22 +812,14 @@ async def __ide_run__(code_str):
        Misc
        ============================================================ */
     clearBtn.addEventListener('click', () => { clearTerminal(); showToast('Cleared', 'info'); });
-    backBtn.addEventListener('click', () => setActiveView('editor'));
 
     document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault(); runCode();
-      } else if (e.key === 'Escape') {
-        if (settingsDrawer.classList.contains('open')) { closeSettingsPanel(); return; }
-        if (state.settings.layout === 'toggle' && state.settings.activeView === 'terminal') {
-          setActiveView('editor');
-        }
+      if (e.key === 'Escape' && settingsDrawer.classList.contains('open')) {
+        closeSettings();
       }
     });
 
-    // Initial render
     applyLayout();
-    updateRunBtn();
   </script>
 </body>
 </html>
